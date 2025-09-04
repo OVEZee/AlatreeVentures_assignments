@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 // Updated to match your correct backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-u5iw.vercel.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-lime.vercel.app';
 
 const EntryList = ({ userId }) => {
   const [entries, setEntries] = useState([]);
@@ -355,4 +355,5 @@ const EntryList = ({ userId }) => {
 };
 
 export default EntryList;
+
 
