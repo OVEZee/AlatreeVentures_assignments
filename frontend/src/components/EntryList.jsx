@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Updated to match your correct backend URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-rxms.vercel.app';
 
 const EntryList = ({ userId }) => {
   const [entries, setEntries] = useState([]);
@@ -17,9 +17,15 @@ const EntryList = ({ userId }) => {
     try {
       setLoading(true);
       console.log('Fetching entries for userId:', userId);
-      const response = await fetch(`${API_BASE_URL}/api/entries/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/entries/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
-        throw new Error('Failed to fetch entries');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch entries' }));
+        throw new Error(errorData.error || 'Failed to fetch entries');
       }
       const data = await response.json();
       console.log('Fetched entries:', data);
@@ -45,7 +51,7 @@ const EntryList = ({ userId }) => {
         body: JSON.stringify({ userId })
       });
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: 'Failed to delete entry' }));
         throw new Error(errorData.error || 'Failed to delete entry');
       }
       setEntries(entries.filter(entry => entry._id !== entryId));
@@ -258,7 +264,6 @@ const EntryList = ({ userId }) => {
             <p className="text-sm text-blue-600">
               💡 <strong>Tip:</strong> Try creating a test entry using Stripe test card: 
               4242 4242 4242 4242
-             
             </p>
           </div>
         </div>
