@@ -9,7 +9,7 @@ import './App.css';
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 // Use the correct backend URL - updated to match your provided URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-rxms.vercel.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-u5iw.vercel.app';
 
 function App() {
   const [currentView, setCurrentView] = useState('submit');
