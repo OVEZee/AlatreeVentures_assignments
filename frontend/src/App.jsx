@@ -8,8 +8,8 @@ import './App.css';
 // Initialize Stripe with the publishable key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-// Use production backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-1b3h.vercel.app';
+// Use the correct backend URL - updated to match your provided URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignments-rxms.vercel.app';
 
 function App() {
   const [currentView, setCurrentView] = useState('submit');
@@ -36,21 +36,33 @@ function App() {
   const testBackendConnection = async () => {
     try {
       console.log('Testing backend connection to:', API_BASE_URL);
-      const response = await fetch(`${API_BASE_URL}/api/health`);
+      const response = await fetch(`${API_BASE_URL}/api/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (response.ok) {
-        console.log('✅ Backend connection successful');
+        const data = await response.json();
+        console.log('✅ Backend connection successful:', data);
       } else {
         console.warn('⚠️ Backend responded with status:', response.status);
       }
     } catch (error) {
       console.error('❌ Backend connection failed:', error);
+      console.log('💡 Tip: Make sure your backend is deployed and running at:', API_BASE_URL);
     }
   };
 
   const handleCreateTestEntry = async () => {
     try {
       console.log('Creating test entry via:', `${API_BASE_URL}/api/create-test-entry/${userId}`);
-      const response = await fetch(`${API_BASE_URL}/api/create-test-entry/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/create-test-entry/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       const data = await response.json();
       if (response.ok) {
         alert(`Test entry created successfully! Entry ID: ${data.id}`);
@@ -71,7 +83,12 @@ function App() {
   const handleCreateMultipleTestEntries = async () => {
     try {
       console.log('Creating multiple test entries via:', `${API_BASE_URL}/api/create-test-entries/${userId}`);
-      const response = await fetch(`${API_BASE_URL}/api/create-test-entries/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/create-test-entries/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       const data = await response.json();
       if (response.ok) {
         alert(`${data.entries.length} test entries created successfully!`);
@@ -130,7 +147,20 @@ function App() {
                       My Entries
                     </button>
                   </div>
-                  
+                  <div className="flex space-x-2 mt-2 md:mt-0">
+                    <button
+                      onClick={handleCreateTestEntry}
+                      className="px-3 py-1 bg-yellow-500 text-black rounded-md text-sm font-medium hover:bg-yellow-400 transition-colors"
+                    >
+                      Create Test Entry
+                    </button>
+                    <button
+                      onClick={handleCreateMultipleTestEntries}
+                      className="px-3 py-1 bg-green-500 text-white rounded-md text-sm font-medium hover:bg-green-400 transition-colors"
+                    >
+                      Create Multiple
+                    </button>
+                  </div>
                 </div>
               </nav>
             </div>
