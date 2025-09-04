@@ -40,7 +40,7 @@ if (!isVercelServerless && !fs.existsSync(uploadsDir)) {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'https://your-frontend-domain.vercel.app'],
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'https://alatree-ventures-assignments-dobl-frkce6h7n.vercel.app'],
   credentials: true
 }));
 
@@ -623,3 +623,4 @@ if (!isVercelServerless) {
     console.log(`🧪 Create test entry: http://localhost:${PORT}/api/create-test-entry/user_test123`);
   });
 }
+
