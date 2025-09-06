@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignmentsaszxasd-ten.vercel.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://alatree-ventures-assignmentsas.vercel.app';
 
 const cardElementOptions = {
   style: {
@@ -471,5 +471,6 @@ const EntryForm = ({ userId }) => {
 
 
 export default EntryForm;
+
 
 
