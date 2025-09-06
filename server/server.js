@@ -69,12 +69,13 @@ app.use((req, res, next) => {
 });
 
 // CORS configuration
+// CORS configuration - Updated with your new frontend URL
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   process.env.FRONTEND_URL,
   'https://alatree-ventures-assignments-dobl-frkce6h7n.vercel.app',
-  'https://alatree-ventures-assignments-ri6cplziz-ovezes-projects-6a95d2ba.vercel.app' // Add this line
+  'https://alatree-ventures-assignments-quwn4smyt-ovezes-projects-6a95d2ba.vercel.app' // Add this line
 ].filter(Boolean);
 
 app.use(cors({
@@ -95,7 +96,6 @@ app.use(cors({
 }));
 
 app.options('*', cors());
-
 // Increase payload size limits for file uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -574,4 +574,5 @@ if (!isVercelServerless) {
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   });
 }
+
 
