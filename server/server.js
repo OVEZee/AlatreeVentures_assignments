@@ -6,24 +6,26 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
-// Initialize Stripe with error checking
+// Initialize Stripe with retry
 let stripe;
-try {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY not found in environment variables');
+async function initializeStripe() {
+  try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY not found in environment variables');
+    }
+    if (process.env.NODE_ENV !== 'production' && !process.env.STRIPE_SECRET_KEY.startsWith('sk_test_')) {
+      throw new Error('STRIPE_SECRET_KEY is not a test key in non-production environment');
+    }
+    stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    await stripe.balance.retrieve({ timeout: 5000 });
+    console.log('✅ Stripe initialized and connection verified');
+  } catch (error) {
+    console.error('ERROR: Failed to initialize Stripe:', error.message);
+    console.log('Retrying Stripe initialization in 5 seconds...');
+    setTimeout(initializeStripe, 5000);
   }
-  if (process.env.NODE_ENV !== 'production' && !process.env.STRIPE_SECRET_KEY.startsWith('sk_test_')) {
-    throw new Error('STRIPE_SECRET_KEY is not a test key in non-production environment');
-  }
-  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-  // Test Stripe connection
-  stripe.balance.retrieve()
-    .then(() => console.log('✅ Stripe initialized and connection verified'))
-    .catch(err => { throw new Error(`Stripe connection test failed: ${err.message}`); });
-} catch (error) {
-  console.error('ERROR: Failed to initialize Stripe:', error.message);
-  process.exit(1);
 }
+initializeStripe();
 
 const app = express();
 
@@ -92,8 +94,25 @@ const connectDB = async () => {
     setTimeout(connectDB, 5000);
   }
 };
-
 connectDB();
+
+// Middleware to check MongoDB connection
+const checkMongoDBConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    console.error('MongoDB not connected, rejecting request:', req.originalUrl);
+    return res.status(503).json({ error: 'Service unavailable: Database not connected' });
+  }
+  next();
+};
+
+// Middleware to check Stripe initialization
+const checkStripeInitialized = (req, res, next) => {
+  if (!stripe) {
+    console.error('Stripe not initialized, rejecting request:', req.originalUrl);
+    return res.status(503).json({ error: 'Service unavailable: Stripe not initialized' });
+  }
+  next();
+};
 
 // Entry Schema
 const entrySchema = new mongoose.Schema({
@@ -187,7 +206,7 @@ const upload = multer({
     fileSize: isVercelServerless ? 4 * 1024 * 1024 : 25 * 1024 * 1024
   },
   fileFilter: fileFilter
-});
+}).single('file');
 
 // Helper function to calculate fees
 const calculateFees = (baseAmount) => {
@@ -198,33 +217,44 @@ const calculateFees = (baseAmount) => {
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Top 216 API Server',
-    status: 'running',
-    environment: isVercelServerless ? 'serverless' : 'local',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      health: '/api/health',
-      createPaymentIntent: '/api/create-payment-intent',
-      submitEntry: '/api/entries',
-      getUserEntries: '/api/entries/:userId'
-    }
-  });
+  try {
+    res.json({ 
+      message: 'Top 216 API Server',
+      status: 'running',
+      environment: isVercelServerless ? 'serverless' : 'local',
+      timestamp: new Date().toISOString(),
+      endpoints: {
+        health: '/api/health',
+        createPaymentIntent: '/api/create-payment-intent',
+        submitEntry: '/api/entries',
+        getUserEntries: '/api/entries/:userId'
+      }
+    });
+  } catch (error) {
+    console.error('Error in root route:', error.message);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Server is running',
-    environment: isVercelServerless ? 'serverless' : 'local',
-    timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    stripe: !!stripe ? 'initialized' : 'not initialized'
-  });
+  try {
+    res.json({ 
+      status: 'OK', 
+      message: 'Server is running',
+      environment: isVercelServerless ? 'serverless' : 'local',
+      timestamp: new Date().toISOString(),
+      mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      stripe: !!stripe ? 'initialized' : 'not initialized'
+    });
+  } catch (error) {
+    console.error('Error in health route:', error.message);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
 });
 
-app.get('/api/create-test-entry/:userId', async (req, res) => {
+app.get('/api/create-test-entry/:userId', checkMongoDBConnection, async (req, res) => {
   try {
+    console.log('Creating test entry for user:', req.params.userId);
     const userId = req.params.userId;
     const textContent = `This is a comprehensive business strategy...`.repeat(2);
     const entry = new Entry({
@@ -250,12 +280,13 @@ app.get('/api/create-test-entry/:userId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating test entry:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to create test entry', message: error.message });
   }
 });
 
-app.get('/api/create-test-entries/:userId', async (req, res) => {
+app.get('/api/create-test-entries/:userId', checkMongoDBConnection, async (req, res) => {
   try {
+    console.log('Creating test entries for user:', req.params.userId);
     const userId = req.params.userId;
     const baseTextContent = `This business strategy focuses on digital transformation...`.repeat(3);
     const testEntries = [
@@ -311,11 +342,11 @@ app.get('/api/create-test-entries/:userId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating test entries:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to create test entries', message: error.message });
   }
 });
 
-app.post('/api/create-payment-intent', async (req, res) => {
+app.post('/api/create-payment-intent', checkStripeInitialized, async (req, res) => {
   try {
     console.log('Payment intent request received:', {
       body: req.body,
@@ -368,7 +399,15 @@ app.post('/api/create-payment-intent', async (req, res) => {
   }
 });
 
-app.post('/api/entries', upload.single('file'), async (req, res) => {
+app.post('/api/entries', (req, res, next) => {
+  upload(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err.message);
+      return res.status(400).json({ error: err.message });
+    }
+    next();
+  });
+}, checkMongoDBConnection, checkStripeInitialized, async (req, res) => {
   try {
     console.log('Entry submission started:', {
       body: req.body,
@@ -463,8 +502,9 @@ app.post('/api/entries', upload.single('file'), async (req, res) => {
   }
 });
 
-app.get('/api/file/:paymentIntentId', async (req, res) => {
+app.get('/api/file/:paymentIntentId', checkMongoDBConnection, async (req, res) => {
   try {
+    console.log('Fetching file for paymentIntentId:', req.params.paymentIntentId);
     const entry = await Entry.findOne({ paymentIntentId: req.params.paymentIntentId }).lean();
     
     if (!entry || !entry.fileData) {
@@ -480,11 +520,11 @@ app.get('/api/file/:paymentIntentId', async (req, res) => {
     res.send(fileBuffer);
   } catch (error) {
     console.error('Error serving file:', error.message);
-    res.status(500).json({ error: 'Failed to serve file' });
+    res.status(500).json({ error: 'Failed to serve file', message: error.message });
   }
 });
 
-app.get('/api/entries/:userId', async (req, res) => {
+app.get('/api/entries/:userId', checkMongoDBConnection, async (req, res) => {
   try {
     console.log('Fetching entries for user:', req.params.userId);
     const entries = await Entry.find({ userId: req.params.userId }).sort({ createdAt: -1 }).lean();
@@ -508,8 +548,9 @@ app.get('/api/entries/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/entry/:id', async (req, res) => {
+app.get('/api/entry/:id', checkMongoDBConnection, async (req, res) => {
   try {
+    console.log('Fetching entry:', req.params.id);
     const entry = await Entry.findById(req.params.id).lean();
     if (!entry) {
       return res.status(404).json({ error: 'Entry not found' });
@@ -529,7 +570,7 @@ app.get('/api/entry/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/entries/:id', async (req, res) => {
+app.delete('/api/entries/:id', checkMongoDBConnection, async (req, res) => {
   try {
     const entryId = req.params.id;
     const { userId } = req.body;
@@ -560,6 +601,9 @@ app.delete('/api/entries/:id', async (req, res) => {
 app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['stripe-signature'];
   try {
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      throw new Error('STRIPE_WEBHOOK_SECRET not found in environment variables');
+    }
     const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log('Webhook event received:', event.type);
     
@@ -574,18 +618,26 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), (req, res) =
     res.json({ received: true });
   } catch (err) {
     console.error('Webhook error:', err.message);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    res.status(400).json({ error: 'Webhook error', message: err.message });
   }
 });
 
 // Global error handler
 app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error.message);
+  console.error('Unhandled error:', error.message, error.stack);
   res.status(500).json({
     error: 'Internal server error',
     message: error.message,
     stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
   });
+});
+
+// Handle uncaught exceptions and promise rejections
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error.message, error.stack);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 module.exports = app;
