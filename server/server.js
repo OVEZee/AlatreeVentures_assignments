@@ -73,7 +73,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   process.env.FRONTEND_URL,
-  'https://alatree-ventures-assignments-dobl-frkce6h7n.vercel.app'
+  'https://alatree-ventures-assignments-dobl-frkce6h7n.vercel.app',
+  'https://alatree-ventures-assignments-ri6cplziz-ovezes-projects-6a95d2ba.vercel.app' // Add this line
 ].filter(Boolean);
 
 app.use(cors({
@@ -573,3 +574,4 @@ if (!isVercelServerless) {
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   });
 }
+
