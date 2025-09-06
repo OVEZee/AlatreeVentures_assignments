@@ -33,7 +33,8 @@ const isVercelServerless = process.env.VERCEL || process.env.NODE_ENV === 'produ
 // Create uploads directory (only for local development)
 const uploadsDir = isVercelServerless ? '/tmp' : 'uploads';
 if (!isVercelServerless && !fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(UploadsDir);
+  // Fixed typo: UploadsDir -> uploadsDir
+  fs.mkdirSync(uploadsDir);
   console.log('✅ Created uploads directory');
 }
 
@@ -90,10 +91,14 @@ const connectDB = async () => {
     if (!isVercelServerless) {
       console.log('Make sure MongoDB is running on your system');
     }
-    process.exit(1);
+    // Don't exit in serverless environment, let it handle gracefully
+    if (!isVercelServerless) {
+      process.exit(1);
+    }
   }
 };
 
+// Call connectDB but don't await it to prevent blocking startup
 connectDB();
 
 // Entry Schema
@@ -227,7 +232,9 @@ app.get('/api/health', (req, res) => {
 app.get('/api/create-test-entry/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    const textContent = `This is a comprehensive business strategy...`.repeat(2); // Truncated for brevity
+    // Create longer content for validation
+    const textContent = Array(30).fill(`This is a comprehensive business strategy that focuses on digital transformation in modern enterprises. We need to consider market dynamics, customer needs, and technological advancement to create sustainable competitive advantages.`).join(' ');
+    
     const entry = new Entry({
       userId,
       category: 'business',
@@ -258,7 +265,9 @@ app.get('/api/create-test-entry/:userId', async (req, res) => {
 app.get('/api/create-test-entries/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    const baseTextContent = `This business strategy focuses on digital transformation...`.repeat(3); // Truncated for brevity
+    // Create longer content for validation (need 100+ words)
+    const baseTextContent = Array(30).fill(`This business strategy focuses on digital transformation and innovation in modern enterprises. We analyze market dynamics, customer behavior patterns, technological advancement opportunities, and competitive landscape analysis to create sustainable competitive advantages. Our approach emphasizes data-driven decision making, customer-centric solutions, and agile methodologies.`).join(' ');
+    
     const testEntries = [
       {
         userId,
@@ -280,7 +289,7 @@ app.get('/api/create-test-entries/:userId', async (req, res) => {
         entryType: 'text',
         title: 'AI-Powered Solution Platform',
         description: 'Revolutionary AI application for enterprise automation',
-        textContent: baseTextContent.replace('business strategy', 'AI technology solution'),
+        textContent: baseTextContent.replace(/business strategy/g, 'AI technology solution').replace(/enterprises/g, 'organizations'),
         entryFee: 99,
         stripeFee: 4,
         totalAmount: 103,
@@ -600,8 +609,10 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Export for Vercel
 module.exports = app;
 
+// Start server locally if not in serverless environment
 const PORT = process.env.PORT || 5000;
 if (!isVercelServerless) {
   app.listen(PORT, () => {
